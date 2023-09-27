@@ -13,7 +13,9 @@ services:
 
     image: pytorch-yolo-v4-train-img
     container_name: pytorch-yolo-v4-train
-    command: tail -F anything-non-existing
+    environment:
+      - HOST_UID=${HOST_UID}
+      - HOST_GID=${HOST_GID}
 
     deploy:
       resources:
@@ -23,6 +25,12 @@ services:
               count: 1
               capabilities: [ "gpu" ]
               
+    security_opt: # options needed for gdb debugging
+      - seccomp:unconfined
+      - apparmor:unconfined
+    cap_add:
+      - SYS_PTRACE
+              
     volumes:
       - ${REPO_DIR}:/repo
       - ${DATA_DIR}:/data
@@ -31,4 +39,5 @@ services:
 
 # sudo docker compose up --build
 # sudo docker compose run -i --entrypoint bash --build yolo-v4-train
+# HOST_UID="$(id -u)" HOST_GID="$(id -g)" docker compose up --build
 
