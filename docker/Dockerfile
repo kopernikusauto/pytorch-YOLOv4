@@ -62,4 +62,3 @@ ENV HOST_GID=""
 COPY docker/set_yolo_uid_gid_and_run_ssh_server.sh /tmp
 
 CMD ["/tmp/set_yolo_uid_gid_and_run_ssh_server.sh"]
-

@@ -22,7 +22,7 @@ services:
         reservations:
           devices:
             - driver: nvidia
-              count: 1
+              device_ids: ["0"]
               capabilities: [ "gpu" ]
               
     security_opt: # options needed for gdb debugging
@@ -35,9 +35,14 @@ services:
       - ${REPO_DIR}:/repo
       - ${DATA_DIR}:/data
 
-    network_mode: "host"
+    ports:
+      # ssh
+      - "8222:22"
+      # tensorboard
+      - "8608:6008"
 
-# sudo docker compose up --build
-# sudo docker compose run -i --entrypoint bash --build yolo-v4-train
-# HOST_UID="$(id -u)" HOST_GID="$(id -g)" docker compose up --build
+# to build and run
+# HOST_UID="$(id -u)" HOST_GID="$(id -g)" docker compose up -d --build
 
+# just to run
+# HOST_UID="$(id -u)" HOST_GID="$(id -g)" docker compose up -d

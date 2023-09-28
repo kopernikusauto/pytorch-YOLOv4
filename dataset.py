@@ -10,6 +10,7 @@
     @Detail    :
 
 '''
+import logging
 import os
 import random
 import sys
@@ -19,6 +20,8 @@ import numpy as np
 
 import torch
 from torch.utils.data.dataset import Dataset
+
+import cfg
 
 
 def rand_uniform_strong(min, max):
@@ -136,13 +139,13 @@ def image_data_augmentation(mat, w, h, pleft, ptop, swidth, sheight, flip, dhue,
         # cv2.COLOR_BGR2HSV, cv2.COLOR_RGB2HSV, cv2.COLOR_HSV2BGR, cv2.COLOR_HSV2RGB
         if dsat != 1 or dexp != 1 or dhue != 0:
             if img.shape[2] >= 3:
-                hsv_src = cv2.cvtColor(sized.astype(np.float32), cv2.COLOR_RGB2HSV)  # RGB to HSV
-                hsv = cv2.split(hsv_src)
+                hsv = cv2.cvtColor(sized.astype(np.float32), cv2.COLOR_RGB2HSV)  # RGB to HSV
+                # hsv = list(cv2.split(hsv_src))
                 hsv[1] *= dsat
                 hsv[2] *= dexp
                 hsv[0] += 179 * dhue
-                hsv_src = cv2.merge(hsv)
-                sized = np.clip(cv2.cvtColor(hsv_src, cv2.COLOR_HSV2RGB), 0, 255)  # HSV to RGB (the same as previous)
+                # hsv_src = cv2.merge(hsv)
+                sized = np.clip(cv2.cvtColor(hsv, cv2.COLOR_HSV2RGB), 0, 255)  # HSV to RGB (the same as previous)
             else:
                 sized *= dexp
 
@@ -252,13 +255,24 @@ class Yolo_dataset(Dataset):
         self.cfg = cfg
         self.train = train
 
+        logging.info(f"Opening label file '{label_path}'.")
         truth = {}
         f = open(label_path, 'r', encoding='utf-8')
         for line in f.readlines():
             data = line.split(" ")
+            if not data:
+                continue
+
             truth[data[0]] = []
-            for i in data[1:]:
-                truth[data[0]].append([int(float(j)) for j in i.split(',')])
+            try:
+                for obj_coords in data[1:]:
+                    truth[data[0]].append([int(float(c)) for c in obj_coords.split(',')])
+            except ValueError as e:
+                logging.error(
+                    f"Can NOT read the line: {line}. "
+                    f"Error when parsing the block: {data}. "
+                    f"Exception: {e}."
+                )
 
         self.truth = truth
         self.imgs = list(self.truth.keys())
@@ -270,7 +284,8 @@ class Yolo_dataset(Dataset):
         if not self.train:
             return self._get_val_item(index)
         img_path = self.imgs[index]
-        bboxes = np.array(self.truth.get(img_path), dtype=np.float)
+        bboxes = self.truth.get(img_path)
+        bboxes = np.array(bboxes, dtype=np.float)
         img_path = os.path.join(self.cfg.dataset_dir, img_path)
         use_mixup = self.cfg.mixup
         if random.randint(0, 1):
@@ -289,14 +304,19 @@ class Yolo_dataset(Dataset):
         out_bboxes = []
 
         for i in range(use_mixup + 1):
+
             if i != 0:
+
                 img_path = random.choice(list(self.truth.keys()))
                 bboxes = np.array(self.truth.get(img_path), dtype=np.float)
                 img_path = os.path.join(self.cfg.dataset_dir, img_path)
+
             img = cv2.imread(img_path)
-            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
             if img is None:
                 continue
+
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
             oh, ow, oc = img.shape
             dh, dw, dc = np.array(np.array([oh, ow, oc]) * self.cfg.jitter, dtype=np.int)
 
@@ -311,7 +331,7 @@ class Yolo_dataset(Dataset):
 
             flip = random.randint(0, 1) if self.cfg.flip else 0
 
-            if (self.cfg.blur):
+            if self.cfg.blur:
                 tmp_blur = random.randint(0, 2)  # 0 - disable, 1 - blur background, 2 - blur the whole image
                 if tmp_blur == 0:
                     blur = 0
@@ -346,6 +366,8 @@ class Yolo_dataset(Dataset):
             swidth = ow - pleft - pright
             sheight = oh - ptop - pbot
 
+            self.cfg.boxes = np.array(self.cfg.boxes)
+
             truth, min_w_h = fill_truth_detection(bboxes, self.cfg.boxes, self.cfg.classes, flip, pleft, ptop, swidth,
                                                   sheight, self.cfg.w, self.cfg.h)
             if (min_w_h / 8) < blur and blur > 1:  # disable blur if one of the objects is too small
@@ -379,11 +401,17 @@ class Yolo_dataset(Dataset):
                 out_img, out_bbox = blend_truth_mosaic(out_img, ai, truth.copy(), self.cfg.w, self.cfg.h, cut_x,
                                                        cut_y, i, left_shift, right_shift, top_shift, bot_shift)
                 out_bboxes.append(out_bbox)
-                # print(img_path)
+
+        out_bboxes = np.array(out_bboxes)
+
         if use_mixup == 3:
             out_bboxes = np.concatenate(out_bboxes, axis=0)
+
+        out_bboxes = np.array(out_bboxes)
+
         out_bboxes1 = np.zeros([self.cfg.boxes, 5])
         out_bboxes1[:min(out_bboxes.shape[0], self.cfg.boxes)] = out_bboxes[:min(out_bboxes.shape[0], self.cfg.boxes)]
+
         return out_img, out_bboxes1
 
     def _get_val_item(self, index):

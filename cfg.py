@@ -10,6 +10,7 @@
     @Detail    :
 
 '''
+import logging
 import os
 from easydict import EasyDict
 
@@ -54,8 +55,15 @@ Cfg.blur = 0
 Cfg.gaussian = 0
 Cfg.boxes = 60  # box num
 Cfg.TRAIN_EPOCHS = 300
+
 Cfg.train_label = os.path.join(_BASE_DIR, 'data', 'train.txt')
+logging.info(f"Cfg.train_label: '{Cfg.train_label}' (_BASE_DIR={_BASE_DIR})")
+logging.info(f"Cfg.train_label directory content: '{os.listdir(os.path.dirname(Cfg.train_label))}'")
+
 Cfg.val_label = os.path.join(_BASE_DIR, 'data' ,'val.txt')
+logging.info(f"Cfg.val_label: '{Cfg.val_label}' (_BASE_DIR={_BASE_DIR})")
+logging.info(f"Cfg.val_label directory content: '{os.listdir(os.path.dirname(Cfg.val_label))}'")
+
 Cfg.TRAIN_OPTIMIZER = 'adam'
 '''
 image_path1 x1,y1,x2,y2,id x1,y1,x2,y2,id x1,y1,x2,y2,id ...

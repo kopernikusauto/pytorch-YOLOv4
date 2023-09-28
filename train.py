@@ -275,12 +275,16 @@ class Yolo_loss(nn.Module):
 
 
 def collate(batch):
+
     images = []
     bboxes = []
+
     for img, box in batch:
         images.append([img])
         bboxes.append([box])
+
     images = np.concatenate(images, axis=0)
+
     images = images.transpose(0, 3, 1, 2)
     images = torch.from_numpy(images).div(255.0)
     bboxes = np.concatenate(bboxes, axis=0)
@@ -368,6 +372,10 @@ def train(model, device, config, epochs=5, batch_size=1, save_cp=True, log_step=
 
         with tqdm(total=n_train, desc=f'Epoch {epoch + 1}/{epochs}', unit='img', ncols=50) as pbar:
             for i, batch in enumerate(train_loader):
+
+                if None in batch:
+                    continue
+
                 global_step += 1
                 epoch_step += 1
                 images = batch[0]
@@ -448,7 +456,7 @@ def train(model, device, config, epochs=5, batch_size=1, save_cp=True, log_step=
                     pass
                 save_path = os.path.join(config.checkpoints, f'{save_prefix}{epoch + 1}.pth')
                 if isinstance(model, torch.nn.DataParallel):
-                    torch.save(model.moduel,state_dict(), save_path)
+                    torch.save(model.moduel.state_dict(), save_path)
                 else:
                     torch.save(model.state_dict(), save_path)
                 logging.info(f'Checkpoint {epoch + 1} saved !')
@@ -545,6 +553,7 @@ def get_args(**kwargs):
     parser.add_argument('-pretrained', type=str, default=None, help='pretrained yolov4.conv.137')
     parser.add_argument('-classes', type=int, default=80, help='dataset classes')
     parser.add_argument('-train_label_path', dest='train_label', type=str, default='train.txt', help="train label path")
+    parser.add_argument('-val_label_path', dest='val_label', type=str, default='val.txt', help="val label path")
     parser.add_argument(
         '-optimizer', type=str, default='adam',
         help='training optimizer',
