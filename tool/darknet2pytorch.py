@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
@@ -534,3 +535,39 @@ class Darknet(nn.Module):
     #         else:
     #             print('unknown type %s' % (block['type']))
     #     fp.close()
+
+
+def convert(cfg: str, weights: str, output: str, for_inference: bool):
+
+    darknet = Darknet(cfg, for_inference)
+    darknet.load_weights(weights)
+
+    torch.jit.script(darknet).save(output)
+
+
+if __name__ == "__main__":
+
+    import argparse
+
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument(
+        "-c", "--cfg", type=str, required=True,
+        help="Darknet model.cfg file."
+    )
+    parser.add_argument(
+        "-w", "--weights", type=str, required=True,
+        help="Darknet .weights file."
+    )
+    parser.add_argument(
+        "-o", "--output", type=str, required=True,
+        help="Output .torchscript file."
+    )
+    parser.add_argument(
+        "--for-inference", action="store_true",
+        help="Set up if you convert the model for inference only."
+    )
+
+    args = parser.parse_args()
+
+    convert(args.cfg, args.weights, args.output, args.for_inference)
